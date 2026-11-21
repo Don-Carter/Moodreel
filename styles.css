@@ -102,6 +102,20 @@ fieldset.chips-group legend { font-weight: 650; padding: 0; margin-bottom: 8px; 
 }
 .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
 
+.tag-group-label {
+  font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); margin: 12px 0 6px;
+}
+.tag-group-label:first-child { margin-top: 0; }
+
+/* Pick button stays above the tab bar until you scroll past it */
+.pick-bar {
+  position: sticky; z-index: 4;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  background: var(--bg); padding: 8px 0 10px; margin: 0 -16px; padding-left: 16px; padding-right: 16px;
+}
+.pick-bar .btn.wide { margin-top: 0; }
+
 /* Buttons */
 .btn {
   display: inline-flex; align-items: center; justify-content: center;

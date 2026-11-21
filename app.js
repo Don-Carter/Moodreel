@@ -28,14 +28,14 @@
   }
   function validItem(it) {
     return it && typeof it.title === 'string' && it.title.trim() &&
-      ['movie', 'show', 'book'].indexOf(it.type) !== -1 &&
+      R.TYPES.some(function (t) { return t.id === it.type; }) &&
       ['short', 'hour', 'two', 'weekend'].indexOf(it.time) !== -1 &&
       ['next', 'done'].indexOf(it.status) !== -1 && typeof it.addedAt === 'number';
   }
   function cleanItem(it) {
     return {
       id: String(it.id || newId()), title: String(it.title).trim().slice(0, 200), type: it.type, time: it.time,
-      moods: (Array.isArray(it.moods) ? it.moods : []).filter(function (m) { return R.MOODS.some(function (x) { return x.id === m; }); }),
+      moods: R.cleanTags(it.type, it.moods),
       recBy: String(it.recBy || '').trim().slice(0, 60), status: it.status,
       rating: it.status === 'done' && it.rating >= 1 && it.rating <= 5 ? Math.round(it.rating) : null,
       addedAt: it.addedAt, finishedAt: it.status === 'done' ? (typeof it.finishedAt === 'number' ? it.finishedAt : it.addedAt) : null
@@ -84,6 +84,24 @@
     });
   }
   function toggleIn(arr, id) { var i = arr.indexOf(id); if (i === -1) arr.push(id); else arr.splice(i, 1); }
+
+  /* Moods, then the genres that fit the type, each under a small label.
+   * type 'any' shows every genre group. */
+  function tagGroups(container, type, selected) {
+    container.innerHTML = '';
+    var groups = [{ label: 'Moods', tags: R.MOODS }];
+    if (!type || type === 'any') {
+      R.GENRE_GROUPS.forEach(function (g) { groups.push({ label: g.label, tags: g.genres }); });
+    } else {
+      groups.push({ label: 'Genres', tags: R.genresFor(type) });
+    }
+    groups.forEach(function (g) {
+      container.appendChild(el('div', { class: 'tag-group-label', text: g.label }));
+      var row = el('div', { class: 'chips' });
+      container.appendChild(row);
+      chipRow(row, g.tags, function () { return selected; }, function (id) { toggleIn(selected, id); }, true);
+    });
+  }
 
   /* ---------- Tabs ---------- */
   var TITLES = { list: 'Moodreel', pick: 'Pick for me', people: 'People', rules: 'Rules' };
@@ -142,18 +160,22 @@
           it.rating ? el('span', { class: 'stars-inline', 'aria-label': it.rating + ' stars', text: stars(it.rating) }) : null
         ]),
         el('div', { class: 'card-meta', text: meta.join(' · ') }),
-        it.moods.length ? el('div', { class: 'tags' }, it.moods.map(function (m) { return el('span', { class: 'tag', text: R.label(R.MOODS, m) }); })) : null
+        it.moods.length ? el('div', { class: 'tags' }, it.moods.map(function (m) { return el('span', { class: 'tag', text: R.tagLabel(m) }); })) : null
       ]));
     });
   }
 
   /* ---------- Pick ---------- */
   function renderPick() {
-    chipRow($('#pick-moods'), R.MOODS, function () { return ui.pick.moods; }, function (id) { toggleIn(ui.pick.moods, id); }, true);
+    chipRow($('#pick-type'), [{ id: 'any', label: 'Any' }].concat(R.TYPES), function () { return ui.pick.type; },
+      function (id) {
+        ui.pick.type = id;
+        ui.pick.moods = R.cleanTags(id, ui.pick.moods); // drop genres that don't fit the new type
+        tagGroups($('#pick-tags'), id, ui.pick.moods);
+      }, false);
     chipRow($('#pick-time'), [{ id: null, label: 'Any length' }].concat(R.TIMES), function () { return ui.pick.time; },
       function (id) { ui.pick.time = id; }, false);
-    chipRow($('#pick-type'), [{ id: 'any', label: 'Any' }].concat(R.TYPES), function () { return ui.pick.type; },
-      function (id) { ui.pick.type = id; }, false);
+    tagGroups($('#pick-tags'), ui.pick.type, ui.pick.moods);
   }
   function runPick() {
     var res = R.pick(state.items, ui.pick, Date.now());
@@ -251,22 +273,28 @@
     function ago(days) { return now - days * DAY; }
     var raw = [
       { title: 'Paddington 2', type: 'movie', time: 'two', moods: ['cozy', 'funny', 'light'], recBy: 'Sam', status: 'next', addedAt: ago(45) },
-      { title: 'Severance', type: 'show', time: 'weekend', moods: ['mind', 'intense'], recBy: 'Priya', status: 'next', addedAt: ago(12) },
-      { title: 'Project Hail Mary', type: 'book', time: 'weekend', moods: ['funny', 'mind'], recBy: 'Sam', status: 'next', addedAt: ago(8) },
-      { title: 'Bluey (any episode)', type: 'show', time: 'short', moods: ['cozy', 'funny', 'light'], recBy: 'Alex', status: 'next', addedAt: ago(3) },
-      { title: 'Past Lives', type: 'movie', time: 'two', moods: ['sad'], recBy: 'Priya', status: 'next', addedAt: ago(60) },
-      { title: 'The Bear', type: 'show', time: 'hour', moods: ['intense'], recBy: 'Jordan', status: 'next', addedAt: ago(20) },
-      { title: 'Spirited Away', type: 'movie', time: 'two', moods: ['cozy', 'mind'], recBy: 'Sam', status: 'done', rating: 5, addedAt: ago(150), finishedAt: ago(120) },
-      { title: 'Klara and the Sun', type: 'book', time: 'weekend', moods: ['sad', 'mind'], recBy: 'Sam', status: 'done', rating: 4, addedAt: ago(130), finishedAt: ago(70) },
+      { title: 'Severance', type: 'show', time: 'weekend', moods: ['mind', 'intense', 'scifi', 'mystery'], recBy: 'Priya', status: 'next', addedAt: ago(12) },
+      { title: 'Project Hail Mary', type: 'book', time: 'weekend', moods: ['funny', 'mind', 'scifi', 'adventure'], recBy: 'Sam', status: 'next', addedAt: ago(8) },
+      { title: 'Bluey (any episode)', type: 'show', time: 'short', moods: ['cozy', 'funny', 'light', 'animated'], recBy: 'Alex', status: 'next', addedAt: ago(3) },
+      { title: 'Past Lives', type: 'movie', time: 'two', moods: ['sad', 'romantic', 'drama'], recBy: 'Priya', status: 'next', addedAt: ago(60) },
+      { title: 'The Bear', type: 'show', time: 'hour', moods: ['intense', 'drama'], recBy: 'Jordan', status: 'next', addedAt: ago(20) },
+      { title: 'Hereditary', type: 'movie', time: 'two', moods: ['spooky', 'intense', 'horror'], recBy: 'Jordan', status: 'next', addedAt: ago(15) },
+      { title: 'Mad Max: Fury Road', type: 'movie', time: 'two', moods: ['intense', 'action', 'scifi'], recBy: 'Alex', status: 'next', addedAt: ago(35) },
+      { title: 'Rumours (Fleetwood Mac)', type: 'music', time: 'hour', moods: ['upbeat', 'romantic', 'rock'], recBy: 'Sam', status: 'next', addedAt: ago(5) },
+      { title: 'Kind of Blue (Miles Davis)', type: 'music', time: 'hour', moods: ['chill', 'cozy', 'jazz'], recBy: 'Priya', status: 'next', addedAt: ago(40) },
+      { title: 'Serial, season 1', type: 'podcast', time: 'weekend', moods: ['intense', 'truecrime', 'storytelling'], recBy: 'Priya', status: 'next', addedAt: ago(25) },
+      { title: 'Lore', type: 'podcast', time: 'hour', moods: ['spooky', 'history', 'storytelling'], recBy: 'Jordan', status: 'next', addedAt: ago(2) },
+      { title: 'Spirited Away', type: 'movie', time: 'two', moods: ['cozy', 'mind', 'animated', 'fantasy'], recBy: 'Sam', status: 'done', rating: 5, addedAt: ago(150), finishedAt: ago(120) },
+      { title: 'Klara and the Sun', type: 'book', time: 'weekend', moods: ['sad', 'mind', 'scifi'], recBy: 'Sam', status: 'done', rating: 4, addedAt: ago(130), finishedAt: ago(70) },
       { title: 'Ted Lasso', type: 'show', time: 'weekend', moods: ['funny', 'cozy'], recBy: 'Priya', status: 'done', rating: 4, addedAt: ago(100), finishedAt: ago(40) },
-      { title: 'Tenet', type: 'movie', time: 'two', moods: ['intense', 'mind'], recBy: 'Jordan', status: 'done', rating: 2, addedAt: ago(90), finishedAt: ago(35) },
-      { title: 'Arrival', type: 'movie', time: 'two', moods: ['mind', 'sad'], recBy: 'Priya', status: 'done', rating: 5, addedAt: ago(40), finishedAt: ago(10) },
-      { title: 'The Midnight Library', type: 'book', time: 'weekend', moods: ['light'], recBy: 'Jordan', status: 'done', rating: 3, addedAt: ago(30), finishedAt: ago(5) }
+      { title: 'Tenet', type: 'movie', time: 'two', moods: ['intense', 'mind', 'action', 'scifi'], recBy: 'Jordan', status: 'done', rating: 2, addedAt: ago(90), finishedAt: ago(35) },
+      { title: 'Arrival', type: 'movie', time: 'two', moods: ['mind', 'sad', 'scifi'], recBy: 'Priya', status: 'done', rating: 5, addedAt: ago(40), finishedAt: ago(10) },
+      { title: 'The Midnight Library', type: 'book', time: 'weekend', moods: ['light', 'fantasy'], recBy: 'Jordan', status: 'done', rating: 3, addedAt: ago(30), finishedAt: ago(5) }
     ];
     return raw.map(function (r) { r.id = newId(); return cleanItem(r); });
   }
   function loadSample() {
-    if (state.items.length && !confirm('Add 12 sample items to your list? Your own items stay.')) return;
+    if (state.items.length && !confirm('Add ' + sampleItems().length + ' sample items to your list? Your own items stay.')) return;
     state.items = state.items.concat(sampleItems());
     save(); toast('Sample data added.');
     ui.list = 'next'; showTab('list');
@@ -326,9 +354,13 @@
   }
   function renderSheetChips() {
     chipRow($('#f-type'), R.TYPES.map(function (t) { return { id: t.id, label: t.icon + ' ' + t.label }; }),
-      function () { return draft.type; }, function (id) { draft.type = id; }, false);
+      function () { return draft.type; }, function (id) {
+        draft.type = id;
+        draft.moods = R.cleanTags(id, draft.moods); // genres from the old type are removed, moods stay
+        tagGroups($('#f-moods'), id, draft.moods);
+      }, false);
     chipRow($('#f-time'), R.TIMES, function () { return draft.time; }, function (id) { draft.time = id; }, false);
-    chipRow($('#f-moods'), R.MOODS, function () { return draft.moods; }, function (id) { toggleIn(draft.moods, id); }, true);
+    tagGroups($('#f-moods'), draft.type, draft.moods);
     chipRow($('#f-status'), [{ id: 'next', label: 'Up next' }, { id: 'done', label: 'Finished' }],
       function () { return draft.status; }, function (id) { draft.status = id; renderStars(); }, false);
     renderStars();

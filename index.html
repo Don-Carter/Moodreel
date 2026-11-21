@@ -33,18 +33,18 @@
   <!-- PICK -->
   <section id="tab-pick" class="screen" hidden>
     <fieldset class="chips-group">
-      <legend>What mood? <span class="hint">Pick any</span></legend>
-      <div class="chips" id="pick-moods"></div>
+      <legend>What kind? <span class="hint">Pick one</span></legend>
+      <div class="chips" id="pick-type"></div>
     </fieldset>
     <fieldset class="chips-group">
       <legend>How much time? <span class="hint">Pick one</span></legend>
       <div class="chips" id="pick-time"></div>
     </fieldset>
     <fieldset class="chips-group">
-      <legend>What kind? <span class="hint">Pick one</span></legend>
-      <div class="chips" id="pick-type"></div>
+      <legend>Moods &amp; genres <span class="hint">Pick any</span></legend>
+      <div id="pick-tags"></div>
     </fieldset>
-    <button id="pick-go" class="btn primary wide">Pick for me</button>
+    <div class="pick-bar"><button id="pick-go" class="btn primary wide">Pick for me</button></div>
     <div id="pick-results" aria-live="polite"></div>
   </section>
 
@@ -96,7 +96,7 @@
     <p class="error" id="title-error" hidden>Give it a title.</p>
     <fieldset class="chips-group"><legend>Type</legend><div class="chips" id="f-type"></div></fieldset>
     <fieldset class="chips-group"><legend>How long is it?</legend><div class="chips" id="f-time"></div></fieldset>
-    <fieldset class="chips-group"><legend>Moods <span class="hint">Pick any</span></legend><div class="chips" id="f-moods"></div></fieldset>
+    <fieldset class="chips-group"><legend>Moods &amp; genres <span class="hint">Pick any</span></legend><div id="f-moods"></div></fieldset>
     <label class="field">Recommended by <span class="hint">optional</span>
       <input name="recBy" list="people-names" autocomplete="off" placeholder="e.g. Sam">
       <datalist id="people-names"></datalist>

@@ -140,6 +140,66 @@
     }
   });
 
+  /* ---- v2: music, podcasts, genres ---- */
+
+  test('A matching genre scores +2, the same as a mood', function () {
+    var it = item({ title: 'A', type: 'movie', moods: ['scifi', 'horror', 'spooky'] });
+    var s = R.scoreItem(it, { moods: ['scifi', 'spooky', 'action'] }, {}, NOW);
+    eq(s.points, 4);
+    eq(s.reasons.map(function (x) { return x.text; }), ['Spooky', 'Sci-Fi'], 'moods listed before genres');
+  });
+
+  test('Each type gets every mood plus only its own genres', function () {
+    function ids(type) { return R.tagsFor(type).map(function (t) { return t.id; }); }
+    var book = ids('book'), music = ids('music'), pod = ids('podcast');
+    eq([book.indexOf('scifi') !== -1, book.indexOf('hiphop'), book.indexOf('truecrime')], [true, -1, -1], 'book');
+    eq([music.indexOf('hiphop') !== -1, music.indexOf('horror')], [true, -1], 'music');
+    eq([pod.indexOf('truecrime') !== -1, pod.indexOf('jazz')], [true, -1], 'podcast');
+    ['book', 'music', 'podcast'].forEach(function (t) {
+      eq(ids(t).slice(0, R.MOODS.length), R.MOODS.map(function (m) { return m.id; }), t + ' moods');
+    });
+    eq(ids('any').indexOf('hiphop') !== -1 && ids('any').indexOf('scifi') !== -1, true, 'any shows all genres');
+  });
+
+  test('No tag id is used twice, and there is no Comedy genre', function () {
+    var all = R.tagsFor('any').map(function (t) { return t.id; });
+    var dupes = all.filter(function (id, i) { return all.indexOf(id) !== i; });
+    eq(dupes, []);
+    eq(R.tagsFor('any').filter(function (t) { return /comedy/i.test(t.label); }).length, 0);
+  });
+
+  test('Switching type drops genres that do not fit, keeps moods', function () {
+    eq(R.cleanTags('music', ['scifi', 'spooky', 'hiphop', 'spooky', 'nope']), ['spooky', 'hiphop']);
+    eq(R.cleanTags('book', ['truecrime', 'cozy', 'mystery']), ['cozy', 'mystery']);
+  });
+
+  test('Music and podcast type filters work', function () {
+    var items = [item({ title: 'Album', type: 'music' }), item({ title: 'Pod', type: 'podcast' }), item({ title: 'Film' })];
+    eq(titles(R.pick(items, { type: 'music' }, NOW)), ['Album']);
+    eq(titles(R.pick(items, { type: 'podcast' }, NOW)), ['Pod']);
+  });
+
+  test('Empty-filter messages read correctly for music and podcasts', function () {
+    var r = R.pick([item({ title: 'M' })], { type: 'music' }, NOW);
+    eq(r.emptyReason, 'Nothing in Up next is music.');
+    r = R.pick([item({ title: 'P', type: 'podcast', time: 'two' })], { type: 'podcast', time: 'short' }, NOW);
+    eq(r.emptyReason, 'Nothing that is a podcast fits in "under 30 min".');
+  });
+
+  test('Worked example: spooky true-crime podcast', function () {
+    var items = [
+      item({ title: 'D1', recBy: 'Priya', status: 'done', rating: 5 }),
+      item({ title: 'D2', recBy: 'Priya', status: 'done', rating: 4 }),
+      item({ title: 'Case File', type: 'podcast', time: 'hour', recBy: 'Priya', moods: ['truecrime', 'spooky', 'intense'], addedAt: NOW - 10 * DAY })
+    ];
+    var p = R.pick(items, { type: 'podcast', moods: ['spooky', 'truecrime'] }, NOW).picks[0];
+    eq(R.explain(p), "5 points: Spooky +2, True crime +2, Priya's picks average 4.5★ +1");
+  });
+
+  test('Rule 4 says mood or genre', function () {
+    eq(R.rulesText()[3], '+2 points for each mood or genre you picked that the item has.');
+  });
+
   var failed = results.filter(function (r) { return !r.ok; });
   results.forEach(function (r) { out((r.ok ? 'PASS  ' : 'FAIL  ') + r.name + (r.ok ? '' : '\n      ' + r.err)); });
   out('\n' + (results.length - failed.length) + ' of ' + results.length + ' tests passed.');

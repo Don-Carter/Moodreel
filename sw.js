@@ -1,6 +1,6 @@
 /* Moodreel service worker: keeps every app file on the phone so it opens with no internet.
  * When you change any app file, bump VERSION so phones fetch the new files. */
-var VERSION = 'moodreel-v1';
+var VERSION = 'moodreel-v2';
 var FILES = [
   './',
   'index.html',
@@ -15,7 +15,9 @@ var FILES = [
 ];
 
 self.addEventListener('install', function (e) {
-  e.waitUntil(caches.open(VERSION).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));
+  // cache: 'reload' skips the browser's short-term copy, so a new version never stores old files.
+  var fresh = FILES.map(function (f) { return new Request(f, { cache: 'reload' }); });
+  e.waitUntil(caches.open(VERSION).then(function (c) { return c.addAll(fresh); }).then(function () { return self.skipWaiting(); }));
 });
 
 self.addEventListener('activate', function (e) {
