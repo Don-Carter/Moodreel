@@ -167,6 +167,7 @@
     if (ui.tab === 'pick') renderPick();
     if (ui.tab === 'people') renderPeople();
     if (ui.tab === 'rules') renderRules();
+    if (personOpen) renderPerson();
   }
 
   /* ---------- List ---------- */
@@ -181,12 +182,7 @@
     });
     var box = $('#list-items'); box.innerHTML = '';
     var items = state.items.filter(function (it) { return it.status === ui.list; });
-    var sorters = {
-      next: function (a, b) { return a.addedAt - b.addedAt; },
-      progress: function (a, b) { return (b.startedAt || 0) - (a.startedAt || 0); },
-      done: function (a, b) { return (b.finishedAt || 0) - (a.finishedAt || 0); }
-    };
-    items.sort(sorters[ui.list]);
+    items.sort(SORTERS[ui.list]);
 
     if (!state.items.length) {
       box.appendChild(el('div', { class: 'empty' }, [
@@ -202,31 +198,38 @@
       return;
     }
     var now = Date.now();
-    items.forEach(function (it) {
-      var t = typeOf(it.type);
-      var meta = [t.label, R.timeLabel(it.time)];
-      if (it.recBy) meta.push('from ' + it.recBy);
-      if (it.status === 'next') meta.push(R.daysWaiting(it, now) + 'd waiting');
-      if (it.status === 'progress' && it.startedAt) meta.push('started ' + daysSince(it.startedAt) + 'd ago');
-      var tell = it.status === 'done' && it.recBy && !it.thanked
-        ? el('button', { type: 'button', class: 'tell-link', text: '💬 Tell ' + it.recBy,
-          onclick: function (e) { e.stopPropagation(); showTell(it.id); } })
-        : null;
-      box.appendChild(el('div', {
-        class: 'card', role: 'button', tabindex: '0', 'aria-label': 'Edit ' + it.title,
-        onclick: function () { openSheet(it.id); },
-        onkeydown: function (e) { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openSheet(it.id); } }
-      }, [
-        el('div', { class: 'card-top' }, [
-          el('span', { class: 'card-icon', 'aria-hidden': 'true', text: t.icon }),
-          el('span', { class: 'card-title', text: it.title }),
-          it.rating ? starsEl(it.rating) : null
-        ]),
-        el('div', { class: 'card-meta', text: meta.join(' · ') }),
-        it.moods.length ? el('div', { class: 'tags' }, it.moods.map(function (m) { return el('span', { class: 'tag', text: R.tagLabel(m) }); })) : null,
-        tell
-      ]));
-    });
+    items.forEach(function (it) { box.appendChild(itemCard(it, now, true)); });
+  }
+  var SORTERS = {
+    next: function (a, b) { return a.addedAt - b.addedAt; },
+    progress: function (a, b) { return (b.startedAt || 0) - (a.startedAt || 0); },
+    done: function (a, b) { return (b.finishedAt || 0) - (a.finishedAt || 0); }
+  };
+  /* One item card; tapping it opens Edit. showFrom adds "from Sam" (left off on Sam's own page). */
+  function itemCard(it, now, showFrom) {
+    var t = typeOf(it.type);
+    var meta = [t.label, R.timeLabel(it.time)];
+    if (it.recBy && showFrom) meta.push('from ' + it.recBy);
+    if (it.status === 'next') meta.push(R.daysWaiting(it, now) + 'd waiting');
+    if (it.status === 'progress' && it.startedAt) meta.push('started ' + daysSince(it.startedAt) + 'd ago');
+    var tell = it.status === 'done' && it.recBy && !it.thanked
+      ? el('button', { type: 'button', class: 'tell-link', text: '💬 Tell ' + it.recBy,
+        onclick: function (e) { e.stopPropagation(); showTell(it.id); } })
+      : null;
+    return el('div', {
+      class: 'card', role: 'button', tabindex: '0', 'aria-label': 'Edit ' + it.title,
+      onclick: function () { openSheet(it.id); },
+      onkeydown: function (e) { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openSheet(it.id); } }
+    }, [
+      el('div', { class: 'card-top' }, [
+        el('span', { class: 'card-icon', 'aria-hidden': 'true', text: t.icon }),
+        el('span', { class: 'card-title', text: it.title }),
+        it.rating ? starsEl(it.rating) : null
+      ]),
+      el('div', { class: 'card-meta', text: meta.join(' · ') }),
+      it.moods.length ? el('div', { class: 'tags' }, it.moods.map(function (m) { return el('span', { class: 'tag', text: R.tagLabel(m) }); })) : null,
+      tell
+    ]);
   }
 
   /* ---------- Pick ---------- */
@@ -307,15 +310,13 @@
   }
   function renderPeople() {
     var chips = $('#people-chips'); chips.innerHTML = '';
-    state.people.forEach(function (n) {
+    var counts = R.recommenderStats(state.items);
+    peopleNames().forEach(function (n) {
+      var c = counts[R.personKey(n)], count = c ? c.count : 0;
       chips.appendChild(el('button', {
-        type: 'button', class: 'chip person-chip', 'aria-label': 'Remove ' + n,
-        onclick: function () {
-          if (!confirm('Remove ' + n + ' from your people? Their name stays on anything they recommended.')) return;
-          state.people = state.people.filter(function (x) { return x !== n; });
-          save(); renderPeople();
-        }
-      }, [n, el('span', { class: 'x', 'aria-hidden': 'true', text: '×' })]));
+        type: 'button', class: 'chip person-chip', 'aria-label': n + ', ' + count + ' recommendation' + (count === 1 ? '' : 's'),
+        onclick: function () { openPerson(n); }
+      }, [n, el('span', { class: 'count', 'aria-hidden': 'true', text: String(count) })]));
     });
 
     var pc = $('#people-chart'); pc.innerHTML = '';
@@ -330,6 +331,69 @@
     }
     var hc = $('#history-chart'); hc.innerHTML = '';
     hc.appendChild(historyChart());
+  }
+
+  /* ---------- One person's page ---------- */
+  var personOpen = null; // the person's key while their page is open
+  var PERSON_GROUPS = [
+    { id: 'next', label: 'Up next' }, { id: 'progress', label: 'In progress' }, { id: 'done', label: 'Finished' }
+  ];
+  function openPerson(name) {
+    personOpen = R.personKey(name);
+    renderPerson();
+    $('#person').hidden = false; $('#person').scrollTop = 0;
+    document.body.style.overflow = 'hidden';
+  }
+  function closePerson() {
+    personOpen = null; $('#person').hidden = true; document.body.style.overflow = '';
+    if (ui.tab === 'people') renderPeople();
+  }
+  function renderPerson() {
+    var k = personOpen;
+    var stat = allPeople().filter(function (p) { return R.personKey(p.name) === k; })[0];
+    if (!stat) { closePerson(); return; } // removed
+    var name = stat.name, first = name.split(' ')[0];
+    var mine = state.items.filter(function (it) { return R.personKey(it.recBy) === k; });
+    $('#person-title').textContent = name;
+    var body = $('#person-body'); body.innerHTML = '';
+
+    var summary = mine.length + ' recommendation' + (mine.length === 1 ? '' : 's');
+    if (stat.average !== null) summary += ' · your average ' + stat.average.toFixed(1) + '★ across ' + stat.rated + ' rated';
+    body.appendChild(el('p', { class: 'person-summary', text: summary }));
+    var trusted = R.isTrusted(stat, R.RULES);
+    body.appendChild(el('p', { class: 'hint', text: trusted
+      ? 'Their picks get the +' + R.RULES.trustedPoints + ' bonus in Pick for me.'
+      : 'Their picks get the +' + R.RULES.trustedPoints + ' bonus once you’ve rated ' + R.RULES.trustedMinRated + '+ of them and they average ' + R.RULES.trustedMinAverage.toFixed(1) + '★ or more.' }));
+    body.appendChild(el('button', { type: 'button', class: 'btn primary wide', text: '+ Add something ' + first + ' recommended',
+      onclick: function () { openSheet(null, { recBy: name, status: 'next' }); } }));
+
+    if (!mine.length) {
+      body.appendChild(el('div', { class: 'empty' }, [el('strong', { text: 'Nothing from ' + first + ' yet' }),
+        'Tap the button above, or pick ' + first + ' under “Recommended by” when you add or edit something.']));
+    }
+    var now = Date.now();
+    PERSON_GROUPS.forEach(function (g) {
+      var list = mine.filter(function (it) { return it.status === g.id; }).sort(SORTERS[g.id]);
+      if (!list.length) return;
+      body.appendChild(el('h3', { class: 'person-group', text: g.label + ' (' + list.length + ')' }));
+      var box = el('div', { class: 'cards' });
+      list.forEach(function (it) { box.appendChild(itemCard(it, now, false)); });
+      body.appendChild(box);
+    });
+
+    body.appendChild(el('button', { type: 'button', class: 'btn danger wide person-remove', text: 'Remove ' + name,
+      onclick: function () { removePerson(name, mine.length); } }));
+  }
+  /* Removing a person takes their name off their items; the items and your ratings stay. */
+  function removePerson(name, count) {
+    var msg = count
+      ? 'Remove ' + name + '? Their name will be taken off the ' + count + ' thing' + (count === 1 ? '' : 's') + ' they recommended. The items and your ratings stay.'
+      : 'Remove ' + name + ' from your people?';
+    if (!confirm(msg)) return;
+    var k = R.personKey(name);
+    state.people = state.people.filter(function (n) { return R.personKey(n) !== k; });
+    state.items.forEach(function (it) { if (R.personKey(it.recBy) === k) { it.recBy = ''; it.thanked = false; } });
+    save(); closePerson(); toast(name + ' removed.');
   }
 
   function peopleChart(people) {
@@ -509,19 +573,21 @@
   }
 
   /* ---------- Add / edit sheet ---------- */
-  var draft = null;
-  function openSheet(id) {
+  var draft = null, recNew = false;
+  /* id = item to edit, or null to add. preset fills in a new item (e.g. { recBy: 'Sam' } from Sam's page). */
+  function openSheet(id, preset) {
     var existing = id ? itemById(id) : null;
     ui.editingId = existing ? existing.id : null;
     draft = existing ? JSON.parse(JSON.stringify(existing))
       : { title: '', type: 'movie', time: 'two', moods: [], recBy: '', status: ui.list, rating: null };
+    if (!existing && preset) Object.keys(preset).forEach(function (k) { draft[k] = preset[k]; });
     var f = $('#item-form');
     $('#sheet-title').textContent = existing ? 'Edit' : 'Add';
-    f.title.value = draft.title; f.recBy.value = draft.recBy;
+    f.title.value = draft.title;
     $('#title-error').hidden = true;
     $('#btn-delete').hidden = !existing;
-    var names = $('#people-names'); names.innerHTML = '';
-    allPeople().forEach(function (p) { names.appendChild(el('option', { value: p.name })); });
+    recNew = false; $('#f-recby-new').value = ''; $('#f-recby-new').hidden = true;
+    renderRecBy();
     renderSheetChips();
     $('#sheet').hidden = false;
     document.body.style.overflow = 'hidden';
@@ -540,6 +606,35 @@
     tagGroups($('#f-moods'), draft.type, draft.moods);
     chipRow($('#f-status'), R.STATUSES, function () { return draft.status; }, function (id) { draft.status = id; renderStars(); }, false);
     renderStars();
+  }
+  /* "Recommended by": one chip per person (tap again to clear), plus "+ Someone new" for a name not saved yet. */
+  function peopleNames() {
+    return allPeople().map(function (p) { return p.name; })
+      .sort(function (a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0; });
+  }
+  function renderRecBy() {
+    var box = $('#f-recby'), input = $('#f-recby-new'), names = peopleNames();
+    var cur = R.personKey(draft.recBy);
+    box.innerHTML = '';
+    names.forEach(function (n) {
+      var on = !recNew && cur === R.personKey(n);
+      box.appendChild(el('button', { type: 'button', class: 'chip', 'aria-pressed': on ? 'true' : 'false', text: n,
+        onclick: function () { recNew = false; input.hidden = true; draft.recBy = on ? '' : n; renderRecBy(); } }));
+    });
+    box.appendChild(el('button', { type: 'button', class: 'chip', 'aria-pressed': recNew ? 'true' : 'false',
+      text: names.length ? '+ Someone new' : '+ Add who recommended it',
+      onclick: function () {
+        recNew = !recNew; input.hidden = !recNew;
+        draft.recBy = recNew ? input.value.trim() : '';
+        renderRecBy();
+        if (recNew) input.focus();
+      } }));
+  }
+  /* A typed name that matches a saved person (any capitals) uses the saved spelling, so it can't split into two people. */
+  function matchName(name) {
+    name = String(name || '').trim();
+    var k = R.personKey(name), hit = peopleNames().filter(function (n) { return R.personKey(n) === k; })[0];
+    return hit || name;
   }
   function renderSheetTime() {
     $('#f-time-legend').textContent = draft.type === 'book' ? 'How many books?' : 'How long is it?';
@@ -561,11 +656,15 @@
     $('#f-rating-group').hidden = draft.status !== 'done';
     starRow($('#f-rating'), function () { return draft.rating; }, function (v) { draft.rating = v; });
   }
-  function closeSheet() { $('#sheet').hidden = true; document.body.style.overflow = ''; draft = null; }
+  function closeSheet() {
+    $('#sheet').hidden = true; draft = null;
+    if ($('#person').hidden) document.body.style.overflow = '';
+  }
   function submitSheet(e) {
     e.preventDefault();
     var f = $('#item-form');
-    draft.title = f.title.value.trim(); draft.recBy = f.recBy.value.trim();
+    draft.title = f.title.value.trim();
+    draft.recBy = matchName(recNew ? $('#f-recby-new').value : draft.recBy);
     if (!draft.title) { $('#title-error').hidden = false; f.title.focus(); return; }
     var now = Date.now(), old = ui.editingId ? itemById(ui.editingId) : null;
     var becameDone = draft.status === 'done' && (!old || old.status !== 'done');
@@ -797,10 +896,12 @@
   $('#quiz-back').addEventListener('click', quizBack);
   $('#tell-send').addEventListener('click', sendTell);
   $('#tell-later').addEventListener('click', hideTell);
+  $('#person-back').addEventListener('click', closePerson);
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
     if (!$('#sheet').hidden) closeSheet();
     else if (!$('#tell').hidden) hideTell();
+    else if (!$('#person').hidden) closePerson();
   });
 
   load();

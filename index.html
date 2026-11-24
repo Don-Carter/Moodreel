@@ -59,6 +59,7 @@
       <input id="person-name" placeholder="Add a name, e.g. Sam" maxlength="60">
       <button type="submit" class="btn primary">+ Add</button>
     </form>
+    <p class="hint">Tap a name to see everything they recommended.</p>
     <div id="people-chips" class="chips"></div>
     <h2>Whose picks you like</h2>
     <p class="hint">Average of your star ratings for finished things each person recommended.</p>
@@ -93,6 +94,18 @@
   <button data-tab="rules"><span aria-hidden="true">📏</span>Rules</button>
 </nav>
 
+<!-- ONE PERSON'S PAGE (sits under the add/edit sheet, so editing from here works) -->
+<div id="person" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="person-title">
+  <div class="sheet-body">
+    <div class="sheet-head">
+      <button type="button" class="link" id="person-back">‹ People</button>
+      <h2 id="person-title"></h2>
+      <span></span>
+    </div>
+    <div id="person-body"></div>
+  </div>
+</div>
+
 <!-- ADD / EDIT SHEET -->
 <div id="sheet" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title">
   <form id="item-form" class="sheet-body" novalidate>
@@ -108,10 +121,11 @@
     <fieldset class="chips-group"><legend>Type</legend><div class="chips" id="f-type"></div></fieldset>
     <fieldset class="chips-group"><legend id="f-time-legend">How long is it?</legend><div class="chips" id="f-time"></div></fieldset>
     <fieldset class="chips-group"><legend>Moods &amp; genres <span class="hint">Pick any</span></legend><div id="f-moods"></div></fieldset>
-    <label class="field">Recommended by <span class="hint">optional</span>
-      <input name="recBy" list="people-names" autocomplete="off" placeholder="e.g. Sam">
-      <datalist id="people-names"></datalist>
-    </label>
+    <fieldset class="chips-group"><legend>Recommended by <span class="hint">optional</span></legend>
+      <div class="chips" id="f-recby"></div>
+      <label class="visually-hidden" for="f-recby-new">New person’s name</label>
+      <input id="f-recby-new" name="recBy" class="recby-new" autocomplete="off" maxlength="60" placeholder="Their name, e.g. Sam" hidden>
+    </fieldset>
     <fieldset class="chips-group"><legend>Status</legend><div class="chips" id="f-status"></div></fieldset>
     <fieldset class="chips-group" id="f-rating-group"><legend>Your rating <span class="hint">Tap a star twice for ½</span></legend><div class="stars" id="f-rating"></div></fieldset>
     <button type="button" id="btn-delete" class="btn danger wide" hidden>Delete</button>

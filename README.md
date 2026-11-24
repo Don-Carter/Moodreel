@@ -41,7 +41,10 @@ Each type only shows its own genres. If you change an item's type, genres that d
   - Cards come 20 at a time with a **Show more** button, and a counter shows how many you've marked. A few is enough to get picks, and more makes them better. You can tap Next at any time.
   - Add the people who recommend things to you.
   - The 96 titles (22 movies, 20 shows, 22 books, 16 albums, 16 podcasts) are written into `starter.js`, and the app never looks anything up online. Every mood and genre has at least one title, so any favorite you pick has a match. Cards are sorted by how many of your favorites they match, with ties kept in the list's order.
-- **People.** On the People tab you can add or remove names. Saved names are suggested in "Recommended by". Removing a name doesn't change items that person already recommended.
+- **People.** On the People tab you can add names. Each name shows how many things that person recommended.
+  - **Recommended by** in the Add/Edit form shows your people as buttons. Tap one to choose it, tap it again to clear it, or tap **+ Someone new** to type a new name (it's saved to People). A typed name that matches a saved one, in any capitals, uses the saved spelling.
+  - **Tap a name** on the People tab to open that person's page: everything they recommended, grouped as Up next, In progress and Finished, with your average rating for them and whether their picks earn the bonus. **+ Add something they recommended** opens the form with their name already chosen.
+  - **Remove** is at the bottom of a person's page. It takes their name off the things they recommended; the items and your ratings stay.
 - **Tell them what you thought.** When you mark something **Finished** and it has a recommender, the app offers to message them.
   - **Send a message** opens your phone's own share menu with a ready-made note. If that isn't available, it copies the note for you.
   - The app itself never sends anything.
@@ -77,7 +80,7 @@ To check offline mode, open the app once, turn on airplane mode, then open it fr
 
 ## Updating the app
 
-After changing any file, change `VERSION` in `sw.js` (for example `moodreel-v4`) and upload the changed files. Phones pick up the new version the next time the app is opened twice.
+After changing any file, change `VERSION` in `sw.js` (for example `moodreel-v7`) and upload the changed files. Phones pick up the new version the next time the app is opened twice.
 
 ## Tests
 

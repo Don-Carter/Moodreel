@@ -173,6 +173,19 @@ fieldset.chips-group legend { font-weight: 650; padding: 0; margin-bottom: 8px; 
 }
 .person-chip { display: inline-flex; align-items: center; gap: 6px; }
 .person-chip .x { font-size: 18px; line-height: 1; opacity: .7; }
+.person-chip .count {
+  min-width: 22px; padding: 1px 6px; border-radius: 999px; font-size: 13px; font-weight: 700; text-align: center;
+  background: var(--gold); color: var(--bg);
+}
+.recby-new {
+  width: 100%; margin-top: 10px; font-size: 17px; padding: 12px 14px; border-radius: 12px;
+  border: 1.5px solid var(--line); background: var(--surface); color: var(--text);
+}
+.recby-new:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.person-summary { font-size: 17px; font-weight: 600; margin: 8px 0 2px; }
+#person-body > .btn.primary { margin: 10px 0 4px; }
+.person-group { font-family: var(--display); text-transform: uppercase; letter-spacing: .04em; color: var(--gold); font-size: 17px; margin: 22px 0 8px; }
+#person-body .person-remove { margin-top: 32px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* Starter quiz */
