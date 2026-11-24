@@ -163,6 +163,27 @@
     return !!it && !!want && it.rank <= want.rank;
   }
 
+  /* ---- Star ratings (half stars allowed) ---- */
+  /* A rating is 0.5 to 5 in steps of 0.5, or null for "not rated". */
+  function cleanRating(v) {
+    if (typeof v !== 'number' || !isFinite(v)) return null;
+    var r = Math.round(v * 2) / 2;
+    return r >= 0.5 && r <= 5 ? r : null;
+  }
+  /* Tapping star n: if it isn't lit yet, fill to n. Tap the same star again for a half (n - 0.5).
+   * Tap it a third time to clear. Tapping any other star fills to that star. */
+  function nextRating(current, n) {
+    if (current === n) return n - 0.5;
+    if (current === n - 0.5) return null;
+    return n;
+  }
+  /* How star n (1..5) looks for a rating: 'full', 'half' or 'empty'. */
+  function starState(rating, n) {
+    if (rating >= n) return 'full';
+    if (rating >= n - 0.5) return 'half';
+    return 'empty';
+  }
+
   /* ---- Old saved data ---- */
   /* Bring an item from an older version up to date. Returns a new object. */
   function migrateItem(it) {
@@ -186,7 +207,7 @@
       if (!out[key]) out[key] = { name: String(it.recBy).trim(), count: 0, rated: 0, total: 0, average: null };
       var s = out[key];
       s.count++;
-      if (it.status === 'done' && typeof it.rating === 'number' && it.rating >= 1) {
+      if (it.status === 'done' && cleanRating(it.rating) !== null) {
         s.rated++;
         s.total += it.rating;
       }
@@ -298,6 +319,7 @@
     MOODS: MOODS, GENRES: GENRES, GENRE_GROUPS: GENRE_GROUPS, DAY_MS: DAY_MS,
     label: label, noun: noun, genresFor: genresFor, tagsFor: tagsFor, cleanTags: cleanTags, tagLabel: tagLabel,
     lengthsFor: lengthsFor, timeLabel: timeLabel, cleanTime: cleanTime, fitsTime: fitsTime, migrateItem: migrateItem,
+    cleanRating: cleanRating, nextRating: nextRating, starState: starState,
     personKey: personKey, recommenderStats: recommenderStats, isTrusted: isTrusted,
     daysWaiting: daysWaiting, scoreItem: scoreItem, pick: pick, explain: explain, rulesText: rulesText
   };

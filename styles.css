@@ -292,7 +292,16 @@ fieldset.chips-group legend { font-weight: 650; padding: 0; margin-bottom: 8px; 
 .stars button {
   width: 48px; height: 48px; border: 0; background: none; font-size: 32px; color: var(--line); padding: 0;
 }
-.stars button[aria-checked="true"] { color: var(--star); }
+.stars button.st-full { color: var(--star); }
+/* Half star: left half gold, right half empty */
+.stars button.st-half, .stars-inline .si.st-half {
+  background: linear-gradient(90deg, var(--star) 50%, var(--line) 50%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.stars-inline { display: inline-flex; }
+.stars-inline .si.st-full { color: var(--star); }
+.stars-inline .si.st-empty { color: var(--line); }
+.quiz-count { font-weight: 600; color: var(--gold); margin: 0 0 10px; font-size: 14px; }
 
 /* Toast */
 .toast {

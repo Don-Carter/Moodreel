@@ -37,14 +37,19 @@ Each type only shows its own genres. If you change an item's type, genres that d
 
 - **Starter quiz.** It opens the first time the app runs with an empty list, and you can take it again from **Rules → Take the starter quiz**.
   - Pick your types, then up to 10 favorite moods and genres. Your favorites start pre-selected on Pick for me.
-  - Mark popular titles as **Seen it**, **Watching now** or **Want to**.
+  - Mark popular titles as **Seen it**, **Watching now** or **Want to**. Books say **Read it** / **Reading now**, and music and podcasts say **Listened** / **Listening now**.
+  - Cards come 20 at a time with a **Show more** button, and a counter shows how many you've marked. A few is enough to get picks, and more makes them better. You can tap Next at any time.
   - Add the people who recommend things to you.
-  - The 25 titles are written into `starter.js`, and the app never looks anything up online. Cards are sorted by how many of your favorites they match, with ties kept in the list's order.
+  - The 96 titles (22 movies, 20 shows, 22 books, 16 albums, 16 podcasts) are written into `starter.js`, and the app never looks anything up online. Every mood and genre has at least one title, so any favorite you pick has a match. Cards are sorted by how many of your favorites they match, with ties kept in the list's order.
 - **People.** On the People tab you can add or remove names. Saved names are suggested in "Recommended by". Removing a name doesn't change items that person already recommended.
 - **Tell them what you thought.** When you mark something **Finished** and it has a recommender, the app offers to message them.
   - **Send a message** opens your phone's own share menu with a ready-made note. If that isn't available, it copies the note for you.
   - The app itself never sends anything.
   - Finished items you haven't shared yet show a **💬 Tell …** link, so you can do it later.
+
+## Star ratings
+
+Tap a star to give that many stars. Tap the same star again for a half star (so tapping the 4th star twice gives 3.5★), and tap it a third time to clear the rating. Ratings go from ½★ to 5★, and half stars count in each recommender's average.
 
 ## Features
 
@@ -82,4 +87,4 @@ After changing any file, change `VERSION` in `sw.js` (for example `moodreel-v4`)
 
 ## Files
 
-`index.html` (screens), `styles.css` (look), `app.js` (screens, saving, charts, quiz), `rules.js` (scoring rules), `starter.js` (the 25 starter-quiz titles), `sw.js` (offline), `manifest.webmanifest` (install info), `icons/` (app icons, made by `tools/make_icons.py`), `tests/`.
+`index.html` (screens), `styles.css` (look), `app.js` (screens, saving, charts, quiz), `rules.js` (scoring rules), `starter.js` (the 96 starter-quiz titles), `sw.js` (offline), `manifest.webmanifest` (install info), `icons/` (app icons, made by `tools/make_icons.py`), `tests/`.

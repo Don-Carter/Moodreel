@@ -46,7 +46,7 @@
     return {
       id: String(m.id || newId()), title: String(m.title).trim().slice(0, 200), type: m.type, time: m.time,
       moods: m.moods, recBy: String(m.recBy || '').trim().slice(0, 60), status: m.status,
-      rating: done && m.rating >= 1 && m.rating <= 5 ? Math.round(m.rating) : null,
+      rating: done ? R.cleanRating(m.rating) : null,
       addedAt: m.addedAt,
       startedAt: typeof m.startedAt === 'number' ? m.startedAt : (progress ? m.addedAt : null),
       finishedAt: done ? (typeof m.finishedAt === 'number' ? m.finishedAt : m.addedAt) : null,
@@ -90,7 +90,12 @@
   }
   function typeOf(id) { return R.TYPES.filter(function (t) { return t.id === id; })[0]; }
   function itemById(id) { return state.items.filter(function (it) { return it.id === id; })[0]; }
-  function stars(n) { return '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n); }
+  /* Five stars for a card; a half star shows half filled. */
+  function starsEl(rating) {
+    var box = el('span', { class: 'stars-inline', role: 'img', 'aria-label': rating + ' star' + (rating === 1 ? '' : 's') });
+    for (var n = 1; n <= 5; n++) box.appendChild(el('span', { class: 'si st-' + R.starState(rating, n), 'aria-hidden': 'true', text: '★' }));
+    return box;
+  }
   function daysSince(t) { return Math.max(0, Math.floor((Date.now() - t) / DAY)); }
   var toastTimer;
   function toast(msg) {
@@ -215,7 +220,7 @@
         el('div', { class: 'card-top' }, [
           el('span', { class: 'card-icon', 'aria-hidden': 'true', text: t.icon }),
           el('span', { class: 'card-title', text: it.title }),
-          it.rating ? el('span', { class: 'stars-inline', 'aria-label': it.rating + ' stars', text: stars(it.rating) }) : null
+          it.rating ? starsEl(it.rating) : null
         ]),
         el('div', { class: 'card-meta', text: meta.join(' · ') }),
         it.moods.length ? el('div', { class: 'tags' }, it.moods.map(function (m) { return el('span', { class: 'tag', text: R.tagLabel(m) }); })) : null,
@@ -540,13 +545,15 @@
     $('#f-time-legend').textContent = draft.type === 'book' ? 'How many books?' : 'How long is it?';
     chipRow($('#f-time'), R.lengthsFor(draft.type), function () { return draft.time; }, function (id) { draft.time = id; }, false);
   }
+  /* Tap a star for that many stars; tap the same star again for a half star; a third tap clears it. */
   function starRow(box, get, set) {
     box.innerHTML = ''; box.setAttribute('role', 'radiogroup');
+    box.setAttribute('aria-label', get() ? 'Rating: ' + get() + ' stars' : 'Rating: none');
     for (var n = 1; n <= 5; n++) (function (n) {
       box.appendChild(el('button', {
         type: 'button', role: 'radio', 'aria-label': n + ' star' + (n > 1 ? 's' : ''),
-        'aria-checked': get() && n <= get() ? 'true' : 'false', text: '★',
-        onclick: function () { set(get() === n ? null : n); starRow(box, get, set); }
+        class: 'st-' + R.starState(get() || 0, n), 'aria-checked': get() && R.starState(get(), n) !== 'empty' ? 'true' : 'false', text: '★',
+        onclick: function () { set(R.nextRating(get(), n)); starRow(box, get, set); }
       }));
     })(n);
   }
@@ -590,13 +597,28 @@
   /* ---------- Starter quiz ---------- */
   var quiz = null;
   var CHOICES = [
-    { id: 'done', label: '✓ Seen it' },
+    { id: 'done', label: '✓ Seen it' },  // "Read it" for books, "Listened" for music and podcasts
     { id: 'progress', label: '▶ Watching now' },
     { id: 'next', label: '+ Want to' },
     { id: 'skip', label: 'Skip' }
   ];
+  function choiceLabel(ch, type) {
+    var heard = type === 'music' || type === 'podcast', book = type === 'book';
+    if (ch.id === 'done') return book ? '✓ Read it' : heard ? '✓ Listened' : ch.label;
+    if (ch.id === 'progress') return book ? '▶ Reading now' : heard ? '▶ Listening now' : ch.label;
+    return ch.label;
+  }
+  var QUIZ_PAGE = 20; // cards shown at a time on step 3
+  function quizMarked() {
+    return Object.keys(quiz.picks).filter(function (t) { var p = quiz.picks[t]; return p.status && p.status !== 'skip'; }).length;
+  }
+  function quizMarkedText() {
+    var n = quizMarked();
+    return n === 0 ? 'Nothing marked yet. A few is enough to get picks; more makes them better.'
+      : n + ' marked' + (n < 5 ? '. Mark a few more for better picks, or tap Next any time.' : '. Nice. Keep going, or tap Next any time.');
+  }
   function openQuiz() {
-    quiz = { step: 1, types: [], favs: state.favTags.slice(0, MAX_FAVS), picks: {}, people: state.people.slice() };
+    quiz = { step: 1, types: [], favs: state.favTags.slice(0, MAX_FAVS), picks: {}, people: state.people.slice(), shown: QUIZ_PAGE };
     $('#quiz').hidden = false;
     document.body.style.overflow = 'hidden';
     renderQuiz();
@@ -646,7 +668,16 @@
       body.appendChild(el('p', { class: 'hint', text: cards.length
         ? 'Tap what fits. Anything you leave alone is skipped. Best matches for your favorites come first.'
         : 'You already have every popular pick for these types. Tap Next.' }));
-      cards.forEach(function (c) { body.appendChild(quizCard(c)); });
+      if (cards.length) body.appendChild(el('p', { class: 'quiz-count', id: 'quiz-count', 'aria-live': 'polite', text: quizMarkedText() }));
+      var list = el('div'); body.appendChild(list);
+      function drawCards() {
+        list.innerHTML = '';
+        cards.slice(0, quiz.shown).forEach(function (c) { list.appendChild(quizCard(c)); });
+        var left = cards.length - quiz.shown;
+        if (left > 0) list.appendChild(el('button', { type: 'button', class: 'btn wide', text: 'Show ' + Math.min(left, QUIZ_PAGE) + ' more (' + left + ' left)',
+          onclick: function () { quiz.shown += QUIZ_PAGE; drawCards(); } }));
+      }
+      drawCards();
     }
 
     if (quiz.step === 4) {
@@ -685,21 +716,21 @@
     ]);
     var choices = el('div', { class: 'quiz-choices', role: 'group', 'aria-label': 'What about ' + it.title + '?' });
     CHOICES.forEach(function (ch) {
-      var isWatch = ch.id === 'progress';
-      var lbl = isWatch ? (it.type === 'book' ? '▶ Reading now' : (it.type === 'music' || it.type === 'podcast') ? '▶ Listening now' : ch.label) : ch.label;
+      var lbl = choiceLabel(ch, it.type);
       choices.appendChild(el('button', {
         type: 'button', class: 'chip', 'aria-pressed': pick.status === ch.id ? 'true' : 'false', text: lbl,
         onclick: function () {
           var next = pick.status === ch.id ? null : ch.id; // tap again to undo
           quiz.picks[it.title] = { status: next, rating: next === 'done' ? pick.rating : null };
           card.replaceWith(quizCard(c));
+          var cnt = $('#quiz-count'); if (cnt) cnt.textContent = quizMarkedText();
         }
       }));
     });
     card.appendChild(choices);
     if (pick.status === 'done') {
       var starBox = el('div', { class: 'stars', 'aria-label': 'Your rating (optional)' });
-      card.appendChild(el('div', { class: 'hint', text: 'Your rating (optional)' }));
+      card.appendChild(el('div', { class: 'hint', text: 'Your rating (optional). Tap a star twice for ½.' }));
       card.appendChild(starBox);
       starRow(starBox, function () { return quiz.picks[it.title].rating; }, function (v) { quiz.picks[it.title].rating = v; });
     }

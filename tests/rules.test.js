@@ -262,17 +262,68 @@
     eq(groupsWithNews.map(function (g) { return g.id; }), ['screen', 'podcast']);
   });
 
+  /* ---- v5: half stars ---- */
+
+  test('Tapping a star: once = that many, twice = half, three times = cleared', function () {
+    eq(R.nextRating(null, 4), 4);
+    eq(R.nextRating(4, 4), 3.5);
+    eq(R.nextRating(3.5, 4), null);
+    eq(R.nextRating(3.5, 2), 2, 'another star just fills to that star');
+    eq(R.nextRating(1, 1), 0.5);
+    eq(R.nextRating(0.5, 1), null);
+  });
+
+  test('How each star looks for 3.5', function () {
+    eq([1, 2, 3, 4, 5].map(function (n) { return R.starState(3.5, n); }), ['full', 'full', 'full', 'half', 'empty']);
+    eq(R.starState(0, 1), 'empty');
+  });
+
+  test('Ratings are kept to halves from 0.5 to 5', function () {
+    eq(R.cleanRating(4.5), 4.5);
+    eq(R.cleanRating(4.3), 4.5);
+    eq(R.cleanRating(0.5), 0.5);
+    eq(R.cleanRating(0), null);
+    eq(R.cleanRating(6), null);
+    eq(R.cleanRating('4'), null);
+    eq(R.cleanRating(null), null);
+  });
+
+  test('Half stars count in a recommender average and the +1 bonus', function () {
+    var items = [
+      item({ title: 'A', recBy: 'Sam', status: 'done', rating: 4.5 }),
+      item({ title: 'B', recBy: 'Sam', status: 'done', rating: 3.5 }),
+      item({ title: 'C', recBy: 'Ana', status: 'done', rating: 3.5 }),
+      item({ title: 'D', recBy: 'Ana', status: 'done', rating: 4 })
+    ];
+    var st = R.recommenderStats(items);
+    eq(st.sam.average, 4.0, '(4.5 + 3.5) / 2');
+    eq(st.ana.average, 3.8, '(3.5 + 4) / 2 = 3.75, shown to one decimal');
+    eq(R.isTrusted(st.sam, R.RULES), true);
+    eq(R.isTrusted(st.ana, R.RULES), false);
+  });
+
   var S = root.MoodStarter;
   if (S) {
-    test('Starter list: 25 titles, each with a valid length and tags for its type', function () {
-      eq(S.STARTER.length, 25);
-      var counts = {};
+    test('Starter list: every title has a valid length and tags for its type, and no title repeats', function () {
+      var counts = {}, seen = {};
       S.STARTER.forEach(function (s) {
         counts[s.type] = (counts[s.type] || 0) + 1;
         eq(R.cleanTime(s.type, s.time), s.time, s.title + ' length');
         eq(R.cleanTags(s.type, s.moods), s.moods, s.title + ' tags');
+        eq(!!seen[s.title.toLowerCase()], false, s.title + ' is listed twice');
+        seen[s.title.toLowerCase()] = true;
       });
-      eq(counts, { movie: 7, show: 6, book: 6, music: 3, podcast: 3 });
+      eq(S.STARTER.length, 96);
+      eq(counts, { movie: 22, show: 20, book: 22, music: 16, podcast: 16 });
+    });
+
+    test('Starter list: every mood and every genre has at least one title of a type it fits', function () {
+      R.MOODS.concat(R.GENRES).forEach(function (t) {
+        var hit = S.STARTER.some(function (s) {
+          return s.moods.indexOf(t.id) !== -1 && (!t.types || t.types.indexOf(s.type) !== -1);
+        });
+        eq(hit, true, t.id + ' has no starter title');
+      });
     });
 
     test('Quiz order: your types only, most favorites first, skip titles you have', function () {

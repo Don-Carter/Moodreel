@@ -1,6 +1,6 @@
 /* Moodreel service worker: keeps every app file on the phone so it opens with no internet.
  * When you change any app file, bump VERSION so phones fetch the new files. */
-var VERSION = 'moodreel-v4';
+var VERSION = 'moodreel-v5';
 var FILES = [
   './',
   'index.html',
