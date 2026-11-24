@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Moodreel</title>
-<meta name="description" content="Track movies, shows and books, who recommended them, and get picks from rules you can check.">
-<meta name="theme-color" content="#5b3cc4">
+<meta name="description" content="Track movies, shows, books, music and podcasts, who recommended them, and get picks from rules you can check.">
+<meta name="theme-color" content="#a3161f" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#130709" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -17,14 +18,15 @@
 </head>
 <body>
 <header class="topbar">
-  <h1 id="screen-title">Up next</h1>
+  <h1 id="screen-title">Moodreel</h1>
 </header>
 
 <main>
   <!-- LIST -->
   <section id="tab-list" class="screen" aria-labelledby="screen-title">
-    <div class="segmented" role="tablist" aria-label="Which list">
+    <div class="segmented three" role="tablist" aria-label="Which list">
       <button role="tab" data-list="next" aria-selected="true">Up next</button>
+      <button role="tab" data-list="progress" aria-selected="false">In progress</button>
       <button role="tab" data-list="done" aria-selected="false">Finished</button>
     </div>
     <div id="list-items" class="cards"></div>
@@ -37,11 +39,12 @@
       <div class="chips" id="pick-type"></div>
     </fieldset>
     <fieldset class="chips-group">
-      <legend>How much time? <span class="hint">Pick one</span></legend>
+      <legend id="pick-time-legend">How much time? <span class="hint">Pick one</span></legend>
       <div class="chips" id="pick-time"></div>
     </fieldset>
     <fieldset class="chips-group">
       <legend>Moods &amp; genres <span class="hint">Pick any</span></legend>
+      <div id="pick-fav-note"></div>
       <div id="pick-tags"></div>
     </fieldset>
     <div class="pick-bar"><button id="pick-go" class="btn primary wide">Pick for me</button></div>
@@ -50,6 +53,13 @@
 
   <!-- PEOPLE -->
   <section id="tab-people" class="screen" hidden>
+    <h2>Who recommends things to you</h2>
+    <form id="person-form" class="inline-form" autocomplete="off">
+      <label class="visually-hidden" for="person-name">Name</label>
+      <input id="person-name" placeholder="Add a name, e.g. Sam" maxlength="60">
+      <button type="submit" class="btn primary">+ Add</button>
+    </form>
+    <div id="people-chips" class="chips"></div>
     <h2>Whose picks you like</h2>
     <p class="hint">Average of your star ratings for finished things each person recommended.</p>
     <div id="people-chart"></div>
@@ -64,6 +74,7 @@
     <h2>Your data</h2>
     <p class="hint">Everything is saved only on this device. Nothing is sent anywhere.</p>
     <div class="stack">
+      <button id="btn-quiz" class="btn">Take the starter quiz</button>
       <button id="btn-sample" class="btn">Load sample data</button>
       <button id="btn-export" class="btn">Save a backup file</button>
       <label class="btn" for="file-import">Restore from a backup file</label>
@@ -73,7 +84,7 @@
   </section>
 </main>
 
-<button id="fab-add" class="fab" aria-label="Add a movie, show or book">+ Add</button>
+<button id="fab-add" class="fab" aria-label="Add a movie, show, book, album or podcast">+ Add</button>
 
 <nav class="tabbar" aria-label="Main">
   <button data-tab="list" aria-current="page"><span aria-hidden="true">☰</span>List</button>
@@ -95,7 +106,7 @@
     </label>
     <p class="error" id="title-error" hidden>Give it a title.</p>
     <fieldset class="chips-group"><legend>Type</legend><div class="chips" id="f-type"></div></fieldset>
-    <fieldset class="chips-group"><legend>How long is it?</legend><div class="chips" id="f-time"></div></fieldset>
+    <fieldset class="chips-group"><legend id="f-time-legend">How long is it?</legend><div class="chips" id="f-time"></div></fieldset>
     <fieldset class="chips-group"><legend>Moods &amp; genres <span class="hint">Pick any</span></legend><div id="f-moods"></div></fieldset>
     <label class="field">Recommended by <span class="hint">optional</span>
       <input name="recBy" list="people-names" autocomplete="off" placeholder="e.g. Sam">
@@ -107,9 +118,34 @@
   </form>
 </div>
 
+<!-- STARTER QUIZ -->
+<div id="quiz" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="quiz-title">
+  <div class="sheet-body">
+    <div class="sheet-head">
+      <button type="button" class="link" id="quiz-back">Skip</button>
+      <h2 id="quiz-title">Starter quiz</h2>
+      <button type="button" class="link strong" id="quiz-next">Next</button>
+    </div>
+    <p class="quiz-step" id="quiz-step"></p>
+    <div id="quiz-body"></div>
+    <button type="button" class="btn primary wide quiz-bottom" id="quiz-next-bottom">Next</button>
+  </div>
+</div>
+
+<!-- "Tell them what you thought" card -->
+<div id="tell" class="tell" hidden role="dialog" aria-labelledby="tell-text">
+  <p id="tell-text"></p>
+  <textarea id="tell-msg" class="tell-msg" readonly rows="3" hidden aria-label="Message to copy"></textarea>
+  <div class="tell-actions">
+    <button type="button" class="btn" id="tell-later">Not now</button>
+    <button type="button" class="btn primary" id="tell-send">Send a message</button>
+  </div>
+</div>
+
 <div id="toast" class="toast" role="status" hidden></div>
 
 <script src="rules.js"></script>
+<script src="starter.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

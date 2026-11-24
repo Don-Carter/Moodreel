@@ -26,15 +26,15 @@
   }
   function titles(r) { return r.picks.map(function (p) { return p.item.title; }); }
 
-  test('Only Up next items are considered', function () {
+  test('Finished items are never picked', function () {
     var r = R.pick([item({ title: 'A', status: 'done' }), item({ title: 'B' })], {}, NOW);
     eq(titles(r), ['B']);
   });
 
-  test('Empty Up next says so', function () {
+  test('Nothing open says so', function () {
     var r = R.pick([item({ title: 'A', status: 'done' })], {}, NOW);
     eq(r.picks.length, 0);
-    eq(r.emptyReason, 'Your Up next list is empty. Add something first.');
+    eq(r.emptyReason, 'Nothing is Up next or In progress. Add something first.');
   });
 
   test('Type filter removes other types; "any" keeps all', function () {
@@ -45,7 +45,7 @@
 
   test('Type filter that removes everything names the type', function () {
     var r = R.pick([item({ title: 'M', type: 'movie' })], { type: 'show' }, NOW);
-    eq(r.emptyReason, 'Nothing in Up next is a show.');
+    eq(r.emptyReason, 'Nothing in Up next or In progress is a show.');
   });
 
   test('Time filter keeps items no longer than the time you have', function () {
@@ -181,7 +181,7 @@
 
   test('Empty-filter messages read correctly for music and podcasts', function () {
     var r = R.pick([item({ title: 'M' })], { type: 'music' }, NOW);
-    eq(r.emptyReason, 'Nothing in Up next is music.');
+    eq(r.emptyReason, 'Nothing in Up next or In progress is music.');
     r = R.pick([item({ title: 'P', type: 'podcast', time: 'two' })], { type: 'podcast', time: 'short' }, NOW);
     eq(r.emptyReason, 'Nothing that is a podcast fits in "under 30 min".');
   });
@@ -199,6 +199,94 @@
   test('Rule 4 says mood or genre', function () {
     eq(R.rulesText()[3], '+2 points for each mood or genre you picked that the item has.');
   });
+
+  /* ---- v3: book lengths, new tags, In progress, starter quiz ---- */
+
+  test('In progress items can be picked, and show up next to Up next', function () {
+    var items = [item({ title: 'Now', status: 'progress', moods: ['cozy'] }), item({ title: 'Later' }), item({ title: 'Done', status: 'done' })];
+    var r = R.pick(items, { moods: ['cozy'] }, NOW);
+    eq(titles(r), ['Now', 'Later']);
+  });
+
+  test('Book lengths: a book fits if it is no longer than the length you pick', function () {
+    var items = [
+      item({ title: 'One', type: 'book', time: 'single' }),
+      item({ title: 'Three', type: 'book', time: 'trilogy' }),
+      item({ title: 'Many', type: 'book', time: 'saga' })
+    ];
+    eq(titles(R.pick(items, { type: 'book', time: 'single' }, NOW)), ['One']);
+    eq(titles(R.pick(items, { type: 'book', time: 'trilogy' }, NOW)), ['One', 'Three']);
+    eq(R.pick(items, { type: 'book', time: 'saga' }, NOW).considered, 3);
+  });
+
+  test('With Any type, books always pass an hours filter', function () {
+    var items = [
+      item({ title: 'Saga', type: 'book', time: 'saga' }),
+      item({ title: 'Long film', type: 'movie', time: 'two' }),
+      item({ title: 'Short show', type: 'show', time: 'short' })
+    ];
+    eq(titles(R.pick(items, { type: 'any', time: 'short' }, NOW)).sort(), ['Saga', 'Short show']);
+  });
+
+  test('Book-length empty message names the length', function () {
+    var r = R.pick([item({ title: 'S', type: 'book', time: 'saga' })], { type: 'book', time: 'single' }, NOW);
+    eq(r.emptyReason, 'Nothing that is a book fits in "single book".');
+  });
+
+  test('Each type gets the right length options; switching type fixes the length', function () {
+    eq(R.lengthsFor('book').map(function (t) { return t.id; }), ['single', 'trilogy', 'saga']);
+    eq(R.lengthsFor('movie').map(function (t) { return t.id; }), ['short', 'hour', 'two', 'weekend']);
+    eq([R.cleanTime('book', 'weekend'), R.cleanTime('book', 'trilogy'), R.cleanTime('movie', 'saga'), R.cleanTime('show', 'hour')],
+      ['single', 'trilogy', 'two', 'hour']);
+  });
+
+  test('Old saved books become "Single book"; old items keep their tags and status', function () {
+    var old = { id: 'x', title: 'Old', type: 'book', time: 'weekend', moods: ['cozy', 'scifi'], status: 'next', addedAt: NOW };
+    var m = R.migrateItem(old);
+    eq([m.time, m.moods, m.status], ['single', ['cozy', 'scifi'], 'next']);
+    eq(old.time, 'weekend', 'original is not changed');
+  });
+
+  test('New tags fit the right types', function () {
+    function has(type, id) { return R.tagsFor(type).some(function (t) { return t.id === id; }); }
+    eq(['movie', 'show', 'book', 'music', 'podcast'].map(function (t) { return has(t, 'kids') && has(t, 'foreign'); }),
+      [true, true, true, true, true], 'Kids & family and Foreign language on every type');
+    eq(['movie', 'show', 'book', 'music', 'podcast'].map(function (t) { return has(t, 'legal') && has(t, 'news'); }),
+      [true, true, true, false, true], 'Legal and News on everything but music');
+  });
+
+  test('"News" is one tag even though it fits several types', function () {
+    var all = R.tagsFor('any').map(function (t) { return t.id; });
+    eq(all.filter(function (id) { return id === 'news'; }).length, 1);
+    var groupsWithNews = R.GENRE_GROUPS.filter(function (g) { return g.genres.some(function (x) { return x.id === 'news'; }); });
+    eq(groupsWithNews.map(function (g) { return g.id; }), ['screen', 'podcast']);
+  });
+
+  var S = root.MoodStarter;
+  if (S) {
+    test('Starter list: 25 titles, each with a valid length and tags for its type', function () {
+      eq(S.STARTER.length, 25);
+      var counts = {};
+      S.STARTER.forEach(function (s) {
+        counts[s.type] = (counts[s.type] || 0) + 1;
+        eq(R.cleanTime(s.type, s.time), s.time, s.title + ' length');
+        eq(R.cleanTags(s.type, s.moods), s.moods, s.title + ' tags');
+      });
+      eq(counts, { movie: 7, show: 6, book: 6, music: 3, podcast: 3 });
+    });
+
+    test('Quiz order: your types only, most favorites first, skip titles you have', function () {
+      var cat = [
+        { title: 'A', type: 'movie', moods: ['cozy'] },
+        { title: 'B', type: 'movie', moods: ['cozy', 'funny'] },
+        { title: 'C', type: 'book', moods: ['cozy', 'funny'] },
+        { title: 'D', type: 'movie', moods: [] }
+      ];
+      var out = S.quizOrder(cat, ['movie'], ['cozy', 'funny'], [' d ']);
+      eq(out.map(function (c) { return c.item.title + c.matches; }), ['B2', 'A1']);
+      eq(S.quizOrder(cat, [], [], []).length, 4, 'no types picked = all types');
+    });
+  }
 
   var failed = results.filter(function (r) { return !r.ok; });
   results.forEach(function (r) { out((r.ok ? 'PASS  ' : 'FAIL  ') + r.name + (r.ok ? '' : '\n      ' + r.err)); });

@@ -1,15 +1,16 @@
 """Draws Moodreel's app icons as PNGs using only the Python standard library.
 Run from the Moodreel folder:  python3 tools/make_icons.py
-Design: purple square, white ring, white play triangle, small gold star.
+Design: velvet-red square, a ring of gold marquee bulbs, cream play triangle.
 """
 import math
 import os
 import struct
 import zlib
 
-PURPLE_TOP = (124, 92, 232)
-PURPLE_BOT = (74, 44, 176)
-WHITE = (255, 255, 255)
+RED_TOP = (190, 22, 34)
+RED_BOT = (110, 10, 17)
+WHITE = (255, 244, 220)
+BULB = (255, 214, 102)
 GOLD = (255, 201, 61)
 
 
@@ -59,15 +60,19 @@ def in_polygon(x, y, pts):
 
 def color_at(u, v, scale):
     """u, v in 0..1. scale shrinks the artwork toward the centre (for maskable safe zone)."""
-    bg = tuple(int(PURPLE_TOP[k] + (PURPLE_BOT[k] - PURPLE_TOP[k]) * v) for k in range(3))
+    bg = tuple(int(RED_TOP[k] + (RED_BOT[k] - RED_TOP[k]) * v) for k in range(3))
     x, y = (u - 0.5) / scale, (v - 0.5) / scale
     r = math.hypot(x, y)
-    if 0.30 <= r <= 0.36:
-        return WHITE
+    # 18 marquee bulbs on a circle, with a soft glow around each
+    for i in range(18):
+        ang = i * 2 * math.pi / 18
+        d = math.hypot(x - 0.36 * math.cos(ang), y - 0.36 * math.sin(ang))
+        if d <= 0.034:
+            return BULB
+        if d <= 0.05:
+            bg = tuple(int(bg[k] + (BULB[k] - bg[k]) * 0.35) for k in range(3))
     if in_triangle(x, y, (-0.10, -0.17), (-0.10, 0.17), (0.19, 0.0)):
         return WHITE
-    if in_polygon(x, y, star_points(0.25, -0.27, 0.11, 0.045)):
-        return GOLD
     return bg
 
 
